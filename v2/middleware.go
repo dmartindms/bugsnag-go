@@ -60,12 +60,11 @@ func (stack *middlewareStack) runBeforeFilter(f beforeFunc, event *Event, config
 func httpRequestMiddleware(event *Event, config *Configuration) error {
 	for _, datum := range event.RawData {
 		if request, ok := datum.(*http.Request); ok && request != nil {
-			metaData := MetaData{
+			event.MetaData.Update(MetaData{
 				"request": {
 					"params": request.URL.Query(),
 				},
-			}
-			event.MetaData.Update(metaData)
+			})
 		}
 	}
 	return nil
