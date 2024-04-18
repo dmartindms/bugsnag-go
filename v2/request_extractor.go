@@ -1,13 +1,17 @@
 package bugsnag
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
 const requestContextKey requestKey = iota
+const requestBodyContextKey requestKey = iota
 
 type requestKey int
 
@@ -15,7 +19,18 @@ type requestKey int
 // object attached for later extraction by the notifier in order to
 // automatically record request data
 func AttachRequestData(ctx context.Context, r *http.Request) context.Context {
+	if os.Getenv("BUGSNAG_LOG_REQUEST_BODY") != "" && r.Body != nil {
+		body := readRequestBody(r)
+		ctx = context.WithValue(ctx, requestBodyContextKey, body)
+	}
 	return context.WithValue(ctx, requestContextKey, r)
+}
+
+func readRequestBody(r *http.Request) []byte {
+	body, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+	return body
 }
 
 // extractRequestInfo looks for the request object that the notifier

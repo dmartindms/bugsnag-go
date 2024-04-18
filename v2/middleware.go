@@ -1,11 +1,9 @@
 package bugsnag
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
-	"io"
 	"net/http"
-	"os"
 )
 
 type (
@@ -67,20 +65,31 @@ func httpRequestMiddleware(event *Event, config *Configuration) error {
 					"params": request.URL.Query(),
 				},
 			}
-			if os.Getenv("BUGSNAG_LOG_REQUEST_BODY") != "" && request.Body != nil {
-				requestBody, err := io.ReadAll(request.Body)
-				if err != nil {
-					return err
-				}
-				request.Body = io.NopCloser(bytes.NewReader(requestBody))
-				var bsBody interface{}
-				err = json.Unmarshal(requestBody, &bsBody)
-				if err != nil { // we could not map body to generic json, so we pass raw string
-					bsBody = string(requestBody)
-				}
-				metaData["request"]["body"] = bsBody
-			}
 			event.MetaData.Update(metaData)
+		}
+	}
+	return nil
+}
+
+// httpRequestBodyMiddleware is added OnBeforeNotify by default.
+// TODO: description
+func httpRequestBodyMiddleware(event *Event, config *Configuration) error {
+	for _, datum := range event.RawData {
+		if ctx, ok := datum.(context.Context); ok && ctx != nil {
+			if bodyVal := ctx.Value(requestBodyContextKey); bodyVal != nil {
+				body := bodyVal.([]byte)
+				var bsBody interface{}
+				err := json.Unmarshal(body, &bsBody)
+				if err != nil { // we could not map body to generic json, so we pass raw string
+					bsBody = string(body)
+				}
+
+				event.MetaData.Update(MetaData{
+					"request": {
+						"body": bsBody,
+					},
+				})
+			}
 		}
 	}
 	return nil

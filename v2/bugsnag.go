@@ -227,6 +227,7 @@ func checkForEmptyError(err error) error {
 func init() {
 	// Set up builtin middlewarez
 	OnBeforeNotify(httpRequestMiddleware)
+	OnBeforeNotify(httpRequestBodyMiddleware)
 
 	// Default configuration
 	sourceRoot := ""
