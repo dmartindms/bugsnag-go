@@ -1,7 +1,10 @@
 package bugsnag
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 )
 
 type (
@@ -58,11 +61,23 @@ func (stack *middlewareStack) runBeforeFilter(f beforeFunc, event *Event, config
 func httpRequestMiddleware(event *Event, config *Configuration) error {
 	for _, datum := range event.RawData {
 		if request, ok := datum.(*http.Request); ok && request != nil {
-			event.MetaData.Update(MetaData{
+			metaData := MetaData{
 				"request": {
 					"params": request.URL.Query(),
 				},
-			})
+			}
+			if os.Getenv("BUGSNAG_LOG_REQUEST_BODY") != "" && request.Body != nil {
+				requestBody, err := io.ReadAll(request.Body)
+				if err == nil {
+					var bsBody interface{}
+					err := json.Unmarshal(requestBody, &bsBody)
+					if err != nil { // we could not map body to generic json, so we pass raw string
+						bsBody = string(requestBody)
+					}
+					metaData["request"]["body"] = bsBody
+				}
+			}
+			event.MetaData.Update(metaData)
 		}
 	}
 	return nil
